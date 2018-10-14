@@ -41,13 +41,8 @@ public class SudokuSolver {
         // Must supply sudoku.Board class with an initial 2d array. Java does not support optional params.
         // 'in' param will become more intuitive later. Currently, there is little use for it.
         Board board = new Board(BOARD_HORIZONTAL_LENGTH, BOARD_VERTICAL_LENGTH, "Input by User", boardInput);
-        // Copy our board first instance of the board. Used for backtracking methods.
-        for(int i = 0; i < board.getBoard().length; i++){
-            for(int j = 0; j < board.getBoard().length; j++){
-                boardInput[i][j] = board.getBoard()[i][j];
-            }
-        }
-        board.setBoard(board.solve(boardInput));
+        board.solve(boardInput);
+        boardInput = board.getBoard();
         board.print(boardInput);
     }
 }
@@ -67,7 +62,7 @@ class Board {
                 }
                 this.setBoard(board);
             } else {
-                System.out.println("Filled board. sudoku.Board ready to solve.");
+                System.out.println("Filled board. Board ready to solve.");
                 this.setBoard(board);
             }
         }
@@ -76,9 +71,7 @@ class Board {
     void setBoard(Integer[][] board){
         this.board = new Integer[board.length][board.length];
         for(int i = 0; i < board.length; i++){
-            for(int j = 0; j < board.length; j++){
-                this.board[i][j] = board[i][j];
-            }
+            System.arraycopy(board[i], 0, this.board[i], 0, board.length);
         }
     }
 
@@ -86,100 +79,68 @@ class Board {
         return this.board;
     }
 
-    Integer[][] solve(Integer[][] board) {
+    boolean solve(Integer[][] board) {
         int x = board.length;
         int y = 0;
         for (Integer[] row : board) {
             y += 1;
         }
 
-        for (int i = 0; i < x; i++) {
-            for (int j = 0; j < y; j++) {
-                print(board);
-                if(board[i][j] == 0) {
-                    int randNum = generateNum(board, i, j);
-                    if (randNum != -1) {
-                        board[i][j] = randNum;
-                    } else {
-                        j = -1;
-                        // reset board to initial values
-                        // needs to reset other rows if needed
-                        System.out.println("Reset");
-                        System.out.println(Arrays.deepToString(this.board));
-                        System.arraycopy(this.board[i], 0, board[i], 0, board.length);
+        for (int row = 0; row < x; row++) {
+            for (int col = 0; col < y; col++) {
+                // if cell is empty, solve for it
+                if(board[row][col] == 0) {
+                    // iterate through all possible values
+                    for (int num = 0; num <= x; num++) {
+                        // check if value is valid
+                        if (numValidation(board, row, col, num)) {
+                            board[row][col] = num;
+                            // using recursion, i'm not sure.....
+                            if (solve(board)) {
+                                return true;
+                            }else{
+                                board[row][col] = 0;
+                            }
+                        }
                     }
+                    return false;
                 }
             }
         }
-        return board;
+        this.setBoard(board);
+        return true;
     }
 
-    private int generateNum(Integer[][] board, int i, int j) {
-        char genNum;
-        int numIdx;
-        Integer[] row = getRow(board, i);
-        Integer[] column = getColumn(board, i, j);
-        Integer[] subsection = getSubsection(board, i, j);
-        StringBuilder numAvail = new StringBuilder("123456789");
-
-        for (int k = 0; k < row.length; k++) {
-            if (row[k] != 0 && numAvail.toString().contains(row[k].toString())) {
-                numIdx = numAvail.toString().indexOf(row[k].toString());
-                numAvail.deleteCharAt(numIdx);
-            }
-            if (column[k] != 0 && numAvail.toString().contains(column[k].toString())) {
-                numIdx = numAvail.toString().indexOf(column[k].toString());
-                numAvail.deleteCharAt(numIdx);
-            }
-            if (subsection[k] != 0 && numAvail.toString().contains(subsection[k].toString())) {
-                numIdx = numAvail.toString().indexOf(subsection[k].toString());
-                numAvail.deleteCharAt(numIdx);
-            }
-            if(numAvail.length() == 0){
-                break;
-            }
-        }
-        int randIdx;
-        if (numAvail.length() - 1 == -1) {
-            return -1;
-        }else if (numAvail.length() - 1 != 0){
-            randIdx = rand.nextInt(numAvail.length());
-            genNum = numAvail.charAt(randIdx);
-            return Integer.parseInt(String.valueOf(genNum));
-        }else{
-            randIdx = 0;
-            genNum = numAvail.charAt(randIdx);
-            return Integer.parseInt(String.valueOf(genNum));
-        }
+    private boolean numValidation(Integer[][] board, int i, int j, int num){
+        // returns true only if our generated number is not within any row, column or subsection
+        return (checkRow(board, i, num) && checkColumn(board, i, j, num) && checkSubsection(board, i, j, num));
     }
 
-    private Integer[] getRow(Integer[][] board, int i) {
-        return board[i];
+    private boolean checkRow(Integer[][] board, int i, int num) {
+        return !Arrays.asList(board[i]).contains(num);
     }
 
-    private Integer[] getColumn(Integer[][] board, int i, int j) {
+    private boolean checkColumn(Integer[][] board, int i, int j, int num) {
         Integer[] col = new Integer[board[i].length];
         for (int k = 0; k < col.length; k++) {
             col[k] = board[k][j];
         }
-        return col;
+        return !Arrays.asList(col).contains(num);
     }
 
-    private Integer[] getSubsection(Integer[][] board, int i, int j) {
+    private boolean checkSubsection(Integer[][] board, int i, int j, int num) {
         Integer[] subsection = new Integer[board[i].length];
-        int subRowStart = (i / 3) * 3;
-        int subRowEnd = subRowStart + 3;
-        int subColStart = (j / 3) * 3;
-        int subColEnd = subColStart + 3;
+        int subRow = (i / 3) * 3;
+        int subCol = (j / 3) * 3;
         int m = 0;
 
-        for (int k = subRowStart; k < subRowEnd; k++) {
-            for (int l = subColStart; l < subColEnd; l++) {
+        for (int k = subRow; k < subRow + 3; k++) {
+            for (int l = subCol; l < subCol + 3; l++) {
                 subsection[m] = board[k][l];
                 m++;
             }
         }
-        return subsection;
+        return !Arrays.asList(subsection).contains(num);
     }
 
     void print(Integer[][] board) {
@@ -200,4 +161,3 @@ class Board {
         System.out.println(" ----------------------- ");
     }
 }
-
